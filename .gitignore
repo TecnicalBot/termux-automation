@@ -1,0 +1,44 @@
+# Local secrets and user-specific configuration
+config/*.local
+config/*-local.conf
+config/emergency.conf
+
+# Runtime state and PID/lock files
+data/
+run/
+*.pid
+*.lock
+*.state
+*.last
+
+# Logs and diagnostic output
+logs/
+*.log
+*.out
+*.err
+*.stderr
+*.stdout
+
+# Temporary files and probes
+tmp/
+.tmp/
+*.tmp
+*.repl
+*probe*
+*signature-test*
+*inspect-*
+*extracted*
+*raw-overlay*
+
+# Local patched/generated helpers
+tgui-bash-fixed
+
+# Editor and OS files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python cache, if Python helpers are added later
+__pycache__/
+*.py[cod]

@@ -1,0 +1,19 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -u
+BASE=/data/data/com.termux/files/home/automation
+BIN="$BASE/bin"
+DATA="$BASE/data"
+mkdir -p "$DATA" "$BASE/logs"
+start_service() {
+  name="$1"
+  script="$2"
+  pidfile="$DATA/$name.pid"
+  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null; then return 0; fi
+  nohup "$script" >>"$BASE/logs/$name.log" 2>&1 </dev/null &
+  echo "$!" >"$pidfile"
+}
+start_service food-monitor "$BIN/food-monitor.sh"
+start_service light-monitor "$BIN/light-monitor.sh"
+if grep -q '^DOPAMINE_ENABLED=1' "$BASE/config/dopamine.conf" 2>/dev/null; then
+  start_service dopamine-monitor "$BIN/dopamine-monitor.sh"
+fi
