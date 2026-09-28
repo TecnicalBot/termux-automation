@@ -1,39 +1,33 @@
 #!/data/data/com.termux/files/usr/bin/tgui-bash
-set -u
 BASE="/data/data/com.termux/files/home/automation"
-LOG="/data/data/com.termux/files/home/automation/logs/emergency-overlay.log"
-mkdir -p "/data/data/com.termux/files/home/automation/logs"
-log(){ printf "[%s] %s\n" "2026-09-24 08:25:09" "" >> ""; }
-log "overlay-start"
+LOG="$BASE/logs/emergency-overlay.log"
+mkdir -p "$BASE/logs"
+log(){ printf "[%s] %s\n" "$(date -Is)" "$*" >> "$LOG"; }
+log overlay-start
 declare -A aparams=()
-aparams[]=true
-declare -a activity=()
-tg_activity_new aparams activity
-if [ -z "" ]; then
-  log "overlay-create-failed count=0"
-  termux-toast "SOS overlay could not start" 2>/dev/null || true
-  exit 1
-fi
-aid=""
-log "activity="
+aparams["$tgc_activity_overlay"]=true
+tg_json_send newActivity aparams
+activity_response="$(tg_msg_recv)"
+case "$activity_response" in
+  \[*\]) aid="$(jq -r ".[0]" <<<"$activity_response")" ;;
+  *) aid="$activity_response" ;;
+esac
+if [ -z "$aid" ] || [ "$aid" = null ]; then log "overlay-create-failed response=$activity_response"; exit 1; fi
+log "activity=$aid"
 declare -A bparams=()
-bparams[]="SOS"
-button=""
-if [ -z "" ]; then log "button-create-failed"; exit 1; fi
-log "button="
-tg_view_width "" "" 64
-tg_view_height "" "" 64
-tg_activity_position "" 900 900
-log "overlay-ready"
-termux-toast "SOS button ready" 2>/dev/null || true
+bparams["$tgc_create_text"]=SOS
+button="$(tg_create_button "$aid" bparams)"
+if [ -z "$button" ]; then log button-create-failed; exit 1; fi
+log "button=$button"
+log overlay-ready
 while true; do
-  ev=""
-  type=""
-  id=""
-  if [ "" = "" ] && [ "" = "" ]; then
-    log "long-click"
-    if [ -x "/data/data/com.termux/files/home/automation/bin/emergency-action.sh" ]; then "/data/data/com.termux/files/home/automation/bin/emergency-action.sh" >> "" 2>&1 & fi
-  elif [ "" = "" ]; then
-    log "destroyed"; exit 0
+  ev="$(tg_msg_recv_event_blocking)" || { log event-read-failed; exit 1; }
+  type="$(tg_event_type "$ev")"
+  id="$(tg_event_id "$ev")"
+  log "event=$type id=$id"
+  [ "$type" = "$tgc_ev_destroy" ] && exit 0
+  if [ "$type" = "$tgc_ev_long_click" ] && [ "$id" = "$button" ]; then
+    log emergency-triggered
+    "$BASE/bin/emergency-action.sh" >> "$BASE/logs/emergency-action.log" 2>&1 &
   fi
 done

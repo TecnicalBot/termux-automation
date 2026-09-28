@@ -1,19 +1,30 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -u
-BASE=/data/data/com.termux/files/home/automation
+BASE="/data/data/com.termux/files/home/automation"
 BIN="$BASE/bin"
 DATA="$BASE/data"
-mkdir -p "$DATA" "$BASE/logs"
+LOGS="$BASE/logs"
+mkdir -p "$DATA" "$LOGS"
+
 start_service() {
-  name="$1"
-  script="$2"
-  pidfile="$DATA/$name.pid"
-  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null; then return 0; fi
-  nohup "$script" >>"$BASE/logs/$name.log" 2>&1 </dev/null &
-  echo "$!" >"$pidfile"
+  local name="$1" script="$2" pidfile="$DATA/$name.pid"
+  if [[ -f "$pidfile" ]]; then
+    local pid
+    pid="$(cat "$pidfile" 2>/dev/null || true)"
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+    rm -f "$pidfile"
+  fi
+  [[ -x "$script" ]] || { printf "missing or non-executable: %s\\n" "$script" >> "$LOGS/boot.log"; return 1; }
+  nohup "$script" >> "$LOGS/$name.log" 2>&1 </dev/null &
+  printf "%s\\n" "$!" > "$pidfile"
 }
+
 start_service food-monitor "$BIN/food-monitor.sh"
 start_service light-monitor "$BIN/light-monitor.sh"
-if grep -q '^DOPAMINE_ENABLED=1' "$BASE/config/dopamine.conf" 2>/dev/null; then
+if grep -q "^DOPAMINE_ENABLED=1" "$BASE/config/dopamine.conf" 2>/dev/null; then
   start_service dopamine-monitor "$BIN/dopamine-monitor.sh"
 fi
+# Termux:GUI overlay; this binding supports the documented long-click event.
+start_service emergency-overlay "$BIN/emergency-overlay.sh"
